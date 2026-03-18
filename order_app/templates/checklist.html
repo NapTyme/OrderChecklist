@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Checklist — {{ header.get('order_id', '') }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold:        #F5C842;
+      --gold-dim:    #8A6F1A;
+      --black:       #0D0D0D;
+      --surface:     #141414;
+      --surface2:    #1C1C1C;
+      --surface3:    #242424;
+      --border:      #2C2C2C;
+      --text:        #E8E8E8;
+      --text-muted:  #555;
+      --text-dim:    #888;
+      --green:       #22C55E;
+      --green-dim:   #166534;
+      --red:         #EF4444;
+      --blue:        #3B82F6;
+      --tag-dry:     #D97706;
+      --tag-frozen:  #2563EB;
+      --tag-fridge:  #7C3AED;
+      --tag-manual:  #374151;
+      --font-ui:     'Barlow Condensed', sans-serif;
+      --font-mono:   'DM Mono', monospace;
+      --header-h:    56px;
+      --filter-h:    52px;
+    }
+
+    html { font-size: 14px; }
+
+    body {
+      background: var(--black);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.25rem;
+      gap: 1rem;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+    }
+
+    .topbar-title {
+      font-family: var(--font-ui);
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .topbar-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .progress-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .progress-bar-outer {
+      width: 110px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-bar-inner {
+      height: 100%;
+      background: var(--gold);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      min-width: 70px;
+      text-align: right;
+    }
+
+    .btn-summary {
+      font-family: var(--font-ui);
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: var(--gold);
+      color: var(--black);
+      border: none;
+      padding: 0.45rem 1rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    .btn-summary:hover { background: #FFD84D; }
+
+    /* ── Filter bar ──────────────────────────────────────── */
+    .filterbar {
+      position: sticky;
+      top: var(--header-h);
+      z-index: 99;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      height: var(--filter-h);
+      display: flex;
+      align-items: center;
+      padding: 0 1.25rem;
+      gap: 0.5rem;
+      overflow-x: auto;
+    }
+
+    .filter-btn {
+      font-family: var(--font-ui);
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.9rem;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+      border-radius: 2px;
+    }
+
+    .filter-btn.active {
+      background: var(--surface3);
+      color: var(--text);
+      border-color: var(--text-dim);
+    }
+
+    .filter-btn[data-vendor="All"].active       { border-color: var(--gold); color: var(--gold); }
+    .filter-btn[data-vendor="Dry"].active       { border-color: var(--tag-dry); color: var(--tag-dry); }
+    .filter-btn[data-vendor="Frozen"].active    { border-color: var(--tag-frozen); color: var(--tag-frozen); }
+    .filter-btn[data-vendor="Refrigerated"].active { border-color: var(--tag-fridge); color: var(--tag-fridge); }
+    .filter-btn[data-vendor="Manual Items"].active { border-color: var(--text-dim); color: var(--text); }
+
+    .filter-sep {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+      margin: 0 0.25rem;
+      flex-shrink: 0;
+    }
+
+    .search-wrap {
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    .search-input {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 0.35rem 0.75rem;
+      width: 180px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .search-input::placeholder { color: var(--text-muted); }
+    .search-input:focus { border-color: var(--text-dim); }
+
+    /* ── Table ───────────────────────────────────────────── */
+    .table-wrap {
+      padding: 0 1.25rem 6rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    colgroup col:nth-child(1) { width: 90px; }   /* WRIN */
+    colgroup col:nth-child(2) { width: auto; }   /* Name */
+    colgroup col:nth-child(3) { width: 90px; }   /* Order Qty */
+    colgroup col:nth-child(4) { width: 175px; }  /* Received */
+    colgroup col:nth-child(5) { width: 80px; }   /* Vendor */
+
+    thead th {
+      font-family: var(--font-ui);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-align: left;
+      padding: 0.75rem 0.75rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: calc(var(--header-h) + var(--filter-h));
+      background: var(--black);
+      z-index: 98;
+    }
+
+    thead th:nth-child(3),
+    thead th:nth-child(4) { text-align: center; }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    tbody tr:hover { background: var(--surface); }
+
+    /* Checked row style */
+    tbody tr.row-done {
+      opacity: 0.45;
+    }
+
+    tbody tr.row-done td.name-cell {
+      text-decoration: line-through;
+      text-decoration-color: var(--text-muted);
+    }
+
+    tbody tr.row-over td.name-cell {
+      color: var(--red);
+    }
+
+    td {
+      padding: 0.6rem 0.75rem;
+      font-size: 12px;
+      vertical-align: middle;
+    }
+
+    td.wrin-cell {
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    td.name-cell {
+      font-size: 12.5px;
+      color: var(--text);
+      letter-spacing: 0.01em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    td.qty-cell {
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--gold);
+    }
+
+    td.received-cell {
+      padding: 0.4rem 0.75rem;
+    }
+
+    td.vendor-cell {
+      text-align: center;
+    }
+
+    /* Vendor tag */
+    .vendor-tag {
+      display: inline-block;
+      font-family: var(--font-ui);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 2px;
+    }
+
+    .vendor-tag.dry         { background: rgba(217,119,6,0.15);  color: var(--tag-dry); }
+    .vendor-tag.frozen      { background: rgba(37,99,235,0.15);  color: var(--tag-frozen); }
+    .vendor-tag.refrigerated{ background: rgba(124,58,237,0.15); color: var(--tag-fridge); }
+    .vendor-tag.manual      { background: rgba(55,65,81,0.4);    color: var(--text-dim); }
+
+    /* Received input group */
+    .received-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .received-input {
+      flex: 1;
+      min-width: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      text-align: center;
+      padding: 0.4rem 0.5rem;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+      -moz-appearance: textfield;
+    }
+
+    .received-input::-webkit-outer-spin-button,
+    .received-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+    .received-input:focus {
+      border-color: var(--gold-dim);
+      background: var(--surface3);
+    }
+
+    .received-input.over  { border-color: var(--red); color: var(--red); }
+    .received-input.match { border-color: var(--green-dim); color: var(--green); }
+
+    .btn-plus {
+      flex-shrink: 0;
+      width: 34px;
+      height: 34px;
+      background: var(--surface3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 1.2rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.12s, border-color 0.12s, transform 0.08s;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .btn-plus:hover  { background: var(--surface2); border-color: var(--text-dim); }
+    .btn-plus:active { transform: scale(0.92); background: var(--border); }
+
+    .btn-plus.bump {
+      animation: bump 0.18s ease-out;
+    }
+
+    @keyframes bump {
+      0%   { transform: scale(0.88); }
+      60%  { transform: scale(1.12); }
+      100% { transform: scale(1.0); }
+    }
+
+    /* ── Summary modal ───────────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      width: 100%;
+      max-width: 680px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      padding: 1.25rem 1.5rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-shrink: 0;
+    }
+
+    .modal-title {
+      font-family: var(--font-ui);
+      font-size: 1.6rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.4rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 4px;
+    }
+
+    .modal-close:hover { color: var(--text); }
+
+    .modal-body {
+      overflow-y: auto;
+      flex: 1;
+      padding: 1rem 1.5rem;
+    }
+
+    .summary-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 0.9rem 1rem;
+      text-align: center;
+    }
+
+    .stat-num {
+      font-family: var(--font-ui);
+      font-size: 2.2rem;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-num.good  { color: var(--green); }
+    .stat-num.warn  { color: var(--gold); }
+    .stat-num.bad   { color: var(--red); }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .summary-section-title {
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.6rem;
+      margin-top: 1.2rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .summary-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+      gap: 0.75rem;
+      font-size: 12px;
+    }
+
+    .summary-item:last-child { border-bottom: none; }
+
+    .summary-item-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .summary-item-wrin {
+      color: var(--text-muted);
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    .summary-item-qty {
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-weight: 500;
+    }
+
+    .summary-item-qty.missing { color: var(--red); }
+    .summary-item-qty.over    { color: var(--gold); }
+
+    .modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .btn-export {
+      flex: 1;
+      font-family: var(--font-ui);
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.75rem;
+      cursor: pointer;
+      border: none;
+      transition: background 0.15s;
+    }
+
+    .btn-export.primary { background: var(--gold); color: var(--black); }
+    .btn-export.primary:hover { background: #FFD84D; }
+    .btn-export.secondary { background: var(--surface3); color: var(--text); border: 1px solid var(--border); }
+    .btn-export.secondary:hover { background: var(--border); }
+
+    /* ── Empty state ─────────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-muted);
+      font-size: 12px;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--black); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    @media (max-width: 600px) {
+      colgroup col:nth-child(1) { width: 70px; }
+      colgroup col:nth-child(3) { width: 70px; }
+      colgroup col:nth-child(4) { width: 130px; }
+      colgroup col:nth-child(5) { display: none; }
+      td.vendor-cell, thead th:nth-child(5) { display: none; }
+      .search-input { width: 120px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-title">Order Check</span>
+      <span class="topbar-meta">
+        #{{ header.get('order_id', '—') }} &nbsp;·&nbsp;
+        {{ header.get('date', '') }} &nbsp;·&nbsp;
+        Store {{ header.get('store', '—') }}
+      </span>
+    </div>
+    <div class="topbar-right">
+      <div class="progress-wrap">
+        <div class="progress-bar-outer">
+          <div class="progress-bar-inner" id="progressBar" style="width:0%"></div>
+        </div>
+        <span class="progress-label" id="progressLabel">0 / {{ items|length }}</span>
+      </div>
+      <button class="btn-summary" onclick="openSummary()">Summary</button>
+    </div>
+  </header>
+
+  <!-- Filter bar -->
+  <nav class="filterbar">
+    <button class="filter-btn active" data-vendor="All" onclick="setFilter('All', this)">All</button>
+    <button class="filter-btn" data-vendor="Dry" onclick="setFilter('Dry', this)">Dry</button>
+    <button class="filter-btn" data-vendor="Frozen" onclick="setFilter('Frozen', this)">Frozen</button>
+    <button class="filter-btn" data-vendor="Refrigerated" onclick="setFilter('Refrigerated', this)">Refrigerated</button>
+    <button class="filter-btn" data-vendor="Manual Items" onclick="setFilter('Manual Items', this)">Manual</button>
+    <div class="filter-sep"></div>
+    <button class="filter-btn" data-vendor="__unchecked__" onclick="setFilter('__unchecked__', this)">Pending</button>
+    <div class="search-wrap">
+      <input class="search-input" type="text" id="searchInput" placeholder="Search name / WRIN…" oninput="applyFilters()">
+    </div>
+  </nav>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table id="orderTable">
+      <colgroup>
+        <col><col><col><col><col>
+      </colgroup>
+      <thead>
+        <tr>
+          <th>WRIN</th>
+          <th>Item Name</th>
+          <th>Order Qty</th>
+          <th>Received</th>
+          <th>Type</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        {% for item in items %}
+        <tr
+          class="item-row"
+          data-wrin="{{ item.wrin }}"
+          data-vendor="{{ item.vendor }}"
+          data-name="{{ item.name | lower }}"
+          data-order="{{ item.proposed_order_qty }}"
+        >
+          <td class="wrin-cell">{{ item.wrin }}</td>
+          <td class="name-cell" title="{{ item.name }}">{{ item.name }}</td>
+          <td class="qty-cell">{{ item.proposed_order_qty | int if item.proposed_order_qty == item.proposed_order_qty | int else item.proposed_order_qty }}</td>
+          <td class="received-cell">
+            <div class="received-group">
+              <input
+                class="received-input"
+                type="number"
+                min="0"
+                step="1"
+                value=""
+                placeholder="—"
+                data-wrin="{{ item.wrin }}"
+                oninput="onInputChange(this)"
+              >
+              <button
+                class="btn-plus"
+                data-wrin="{{ item.wrin }}"
+                onclick="increment(this)"
+                title="+1"
+              >+</button>
+            </div>
+          </td>
+          <td class="vendor-cell">
+            {% set v = item.vendor %}
+            {% if v == 'Dry' %}
+              <span class="vendor-tag dry">Dry</span>
+            {% elif v == 'Frozen' %}
+              <span class="vendor-tag frozen">Frozen</span>
+            {% elif v == 'Refrigerated' %}
+              <span class="vendor-tag refrigerated">Fridge</span>
+            {% else %}
+              <span class="vendor-tag manual">Manual</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="empty-state" id="emptyState" style="display:none">No items match current filter.</div>
+  </div>
+
+  <!-- Summary Modal -->
+  <div class="modal-overlay" id="modalOverlay" onclick="closeSummaryOnBg(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Order Summary</span>
+        <button class="modal-close" onclick="closeSummary()">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- filled by JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn-export secondary" onclick="closeSummary()">Close</button>
+        <button class="btn-export primary" onclick="exportCSV()">Export CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Item data for JS -->
+  <script>
+    // Build item index from server data
+    const ALL_ITEMS = [
+      {% for item in items %}
+      {
+        wrin:     "{{ item.wrin }}",
+        name:     {{ item.name | tojson }},
+        order:    {{ item.proposed_order_qty }},
+        vendor:   "{{ item.vendor }}"
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ];
+
+    // In-memory received state  { wrin -> received_value }
+    const received = {};
+
+    let currentFilter = 'All';
+
+    /* ── Filter ─────────────────────────────────────────── */
+    function setFilter(vendor, btn) {
+      currentFilter = vendor;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyFilters();
+    }
+
+    function applyFilters() {
+      const q = document.getElementById('searchInput').value.toLowerCase().trim();
+      let visible = 0;
+      document.querySelectorAll('.item-row').forEach(row => {
+        const vendor   = row.dataset.vendor;
+        const name     = row.dataset.name;
+        const wrin     = row.dataset.wrin;
+        const isDone   = row.classList.contains('row-done');
+
+        const matchVendor =
+          currentFilter === 'All' ||
+          (currentFilter === '__unchecked__' && !isDone) ||
+          vendor === currentFilter;
+
+        const matchSearch =
+          !q || name.includes(q) || wrin.includes(q);
+
+        const show = matchVendor && matchSearch;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+
+      document.getElementById('emptyState').style.display = visible === 0 ? 'block' : 'none';
+    }
+
+    /* ── Input handling ──────────────────────────────────── */
+    function onInputChange(input) {
+      const wrin = input.dataset.wrin;
+      const val  = input.value === '' ? null : parseFloat(input.value);
+      received[wrin] = val;
+      updateRowState(wrin, val, input);
+      updateProgress();
+    }
+
+    function increment(btn) {
+      const wrin  = btn.dataset.wrin;
+      const input = document.querySelector(`.received-input[data-wrin="${wrin}"]`);
+      const cur   = (received[wrin] == null) ? 0 : received[wrin];
+      const next  = Math.round((cur + 1) * 100) / 100;
+      input.value = next;
+      received[wrin] = next;
+      updateRowState(wrin, next, input);
+      updateProgress();
+
+      // Visual bump animation
+      btn.classList.remove('bump');
+      void btn.offsetWidth; // reflow
+      btn.classList.add('bump');
+
+      // Re-apply pending filter if active
+      if (currentFilter === '__unchecked__') applyFilters();
+    }
+
+    function updateRowState(wrin, val, input) {
+      const row   = input.closest('tr');
+      const order = parseFloat(row.dataset.order);
+
+      input.classList.remove('match', 'over');
+      row.classList.remove('row-done', 'row-over');
+
+      if (val === null) return;
+
+      if (val > order) {
+        input.classList.add('over');
+        row.classList.add('row-over');
+      } else if (val === order) {
+        input.classList.add('match');
+        row.classList.add('row-done');
+        if (currentFilter === '__unchecked__') applyFilters();
+      } else {
+        // partial
+        row.classList.remove('row-done', 'row-over');
+      }
+    }
+
+    /* ── Progress ────────────────────────────────────────── */
+    function updateProgress() {
+      const total   = ALL_ITEMS.length;
+      const checked = ALL_ITEMS.filter(i => received[i.wrin] != null).length;
+      const pct     = total > 0 ? (checked / total) * 100 : 0;
+      document.getElementById('progressBar').style.width = pct + '%';
+      document.getElementById('progressLabel').textContent = `${checked} / ${total}`;
+    }
+
+    /* ── Summary modal ───────────────────────────────────── */
+    function openSummary() {
+      buildSummary();
+      document.getElementById('modalOverlay').classList.add('open');
+    }
+
+    function closeSummary() {
+      document.getElementById('modalOverlay').classList.remove('open');
+    }
+
+    function closeSummaryOnBg(e) {
+      if (e.target === document.getElementById('modalOverlay')) closeSummary();
+    }
+
+    function buildSummary() {
+      const total    = ALL_ITEMS.length;
+      const entered  = ALL_ITEMS.filter(i => received[i.wrin] != null);
+      const missing  = ALL_ITEMS.filter(i => {
+        const r = received[i.wrin];
+        return r == null || r < i.order;
+      });
+      const over     = ALL_ITEMS.filter(i => {
+        const r = received[i.wrin];
+        return r != null && r > i.order;
+      });
+      const ok       = ALL_ITEMS.filter(i => received[i.wrin] === i.order);
+
+      let html = `
+        <div class="summary-stats">
+          <div class="stat-box">
+            <div class="stat-num good">${ok.length}</div>
+            <div class="stat-label">Exact Match</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num bad">${missing.length}</div>
+            <div class="stat-label">Short / Missing</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num warn">${over.length}</div>
+            <div class="stat-label">Received Over</div>
+          </div>
+        </div>
+      `;
+
+      if (missing.length > 0) {
+        html += `<div class="summary-section-title">Short / Not Received</div>`;
+        missing.forEach(item => {
+          const r = received[item.wrin];
+          const got = r == null ? 0 : r;
+          const diff = item.order - got;
+          html += `
+            <div class="summary-item">
+              <span class="summary-item-name">${escHtml(item.name)}</span>
+              <span class="summary-item-wrin">${item.wrin}</span>
+              <span class="summary-item-qty missing">−${fmt(diff)} (got ${fmt(got)} / need ${fmt(item.order)})</span>
+            </div>`;
+        });
+      }
+
+      if (over.length > 0) {
+        html += `<div class="summary-section-title">Received Over Order</div>`;
+        over.forEach(item => {
+          const r = received[item.wrin];
+          const diff = r - item.order;
+          html += `
+            <div class="summary-item">
+              <span class="summary-item-name">${escHtml(item.name)}</span>
+              <span class="summary-item-wrin">${item.wrin}</span>
+              <span class="summary-item-qty over">+${fmt(diff)} (got ${fmt(r)} / ordered ${fmt(item.order)})</span>
+            </div>`;
+        });
+      }
+
+      if (missing.length === 0 && over.length === 0 && ok.length > 0) {
+        html += `<div class="summary-section-title" style="color: var(--green)">✓ All items accounted for</div>`;
+      }
+
+      if (entered.length === 0) {
+        html += `<p style="color:var(--text-muted);font-size:12px;padding:1rem 0;">No quantities entered yet.</p>`;
+      }
+
+      document.getElementById('modalBody').innerHTML = html;
+    }
+
+    /* ── CSV export ──────────────────────────────────────── */
+    function exportCSV() {
+      const rows = [['WRIN', 'Name', 'Vendor', 'Order Qty', 'Received', 'Difference', 'Status']];
+      ALL_ITEMS.forEach(item => {
+        const r    = received[item.wrin];
+        const got  = r == null ? '' : r;
+        const diff = r == null ? '' : (r - item.order);
+        let status = 'Not entered';
+        if (r != null) {
+          if (r === item.order)  status = 'Match';
+          else if (r < item.order) status = 'Short';
+          else                   status = 'Over';
+        }
+        rows.push([item.wrin, item.name, item.vendor, item.order, got, diff, status]);
+      });
+
+      const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `order_{{ header.get('order_id', 'check') }}_received.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    /* ── Utilities ───────────────────────────────────────── */
+    function fmt(n) {
+      return Number.isInteger(n) ? n : parseFloat(n.toFixed(2));
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    /* ── Keyboard shortcut: Esc closes modal ─────────────── */
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeSummary();
+    });
+
+    // Init progress
+    updateProgress();
+  </script>
+</body>
+</html> 
